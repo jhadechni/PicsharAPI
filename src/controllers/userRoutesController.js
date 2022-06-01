@@ -18,7 +18,7 @@ controller.login = async (req, res) => {
             const payload = {
                 'username': user.username,
                 'password': user.password,
-                'id_user': user._id
+                'user_id': user._id
             }
 
             const validPassword = await bcrypt.compare(req.body.password, payload.password);
@@ -30,7 +30,7 @@ controller.login = async (req, res) => {
 
             if (!req.body.token) { return res.sendStatus(400) }
             if (!await auth.verifyTokenBody(req, res)) { return res.status(401).json({ message: 'token no valido', statusCode: 401 }) }
-            return res.sendStatus(200)
+            return res.sendStatus(200).json(req.body.token)
 
         }
     } catch (error) {
@@ -45,8 +45,7 @@ controller.register = async (req, res) => {
 
     if (!req.body.username || !req.body.password || !req.body.email || !req.body.bio) { return res.sendStatus(400) }
 
-    const user = await userModel.findOne({ cedula: req.body.cedula })
-
+    const user = await userModel.findOne({ username: req.body.username })
     try {
 
         if (user) { return res.status(208).json({ message: "User already exist" }) }
@@ -75,9 +74,9 @@ controller.getUser = async (req, res) => {
     try {
 
         if (!req.query.user_id) { return res.sendStatus(400) }
-
+        
         if (!await auth.verifyTokenHeader(req,res)){return res.sendStatus(401)}
-
+        
         const user = await userModel.findById({ _id: req.query.user_id }, '-_id -password -__v -birthdate')
 
         if (!user) { return res.status(404).json({ message: 'User not found', statusCode: 404 }) }

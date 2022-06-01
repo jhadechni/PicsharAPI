@@ -7,8 +7,8 @@
   "author": "jhadechni",
   "license": "MIT",
   "scripts": {
-    "start" : "node src/index.js",
-    "dev" : "nodemon src/index.js"
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js"
   },
   "dependencies": {
     "bcrypt": "^5.0.1",
