@@ -26,7 +26,8 @@ controller.login = async (req, res) => {
 
             if (!req.body.token) { return res.sendStatus(400) }
             if (!await auth.verifyTokenBody(req, res)) { return res.status(401).json({ message: 'token no valido', statusCode: 401 }) }
-            return res.status(200).json({ token })
+            return res.sendStatus(200)
+
         }
     } catch (error) {
 
