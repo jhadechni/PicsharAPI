@@ -3,6 +3,7 @@ const auth = require("../utils/auth");
 const postModel = require('../models/postModel');
 const followModel = require('../models/followModel');
 const commentModel = require('../models/commentModel');
+const saveModel = require('../models/saveModel');
 
 controller.post = async (req,res) => {
     try {
@@ -107,6 +108,22 @@ controller.comment = async (req, res) => {
                 user_id: req.user.user_id
             });
             return res.status(200).json(comment)
+        } else {
+            return res.status(404).json({ message: 'No valido', statusCode: 401 })
+        }
+    } catch (error) {
+        res.status(500).json({ data: "Server internal error" })
+    }
+}
+
+controller.save = async (req, res) => {
+    try {
+        if (await auth.verifyTokenHeader(req, res) && req.body.post_id) {
+            const save = await saveModel.create({
+                post_id: req.body.post_id,
+                user_id: req.user.user_id
+            });
+            return res.status(200).json(save)
         } else {
             return res.status(404).json({ message: 'No valido', statusCode: 401 })
         }
