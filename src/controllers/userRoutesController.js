@@ -2,6 +2,9 @@ const controller = {}
 const auth = require("../utils/auth")
 const bcrypt = require('bcrypt')
 const userModel = require('../models/userModel')
+const likesModel = require('../models/likesModel')
+const followModel = require('../models/followModel')
+const postsModel = require('../models/postModel')
 
 controller.login = async (req, res) => {
 
@@ -9,12 +12,13 @@ controller.login = async (req, res) => {
 
         if (req.body.username && req.body.password) {
 
-            const user = await userModel.findOne({ username: req.body.username }, '-_v -_id')
+            const user = await userModel.findOne({ username: req.body.username }, '-_v')
             if (!user) { return res.status(404).json({ message: "Username incorrect", statusCode: 404 }) }
 
             const payload = {
                 'username': user.username,
-                'password': user.password
+                'password': user.password,
+                'id_user': user._id
             }
 
             const validPassword = await bcrypt.compare(req.body.password, payload.password);
@@ -39,7 +43,7 @@ controller.login = async (req, res) => {
 
 controller.register = async (req, res) => {
 
-    if (!req.body.username || !req.body.password || !req.body.email  || !req.body.bio) { return res.sendStatus(400) }
+    if (!req.body.username || !req.body.password || !req.body.email || !req.body.bio) { return res.sendStatus(400) }
 
     const user = await userModel.findOne({ cedula: req.body.cedula })
 
@@ -48,11 +52,12 @@ controller.register = async (req, res) => {
         if (user) { return res.status(208).json({ message: "User already exist" }) }
         const salt = await bcrypt.genSalt(10)
         req.body.password = await bcrypt.hash(req.body.password, salt)
-        await userModel.create(req.body)
+        const savedUser = await userModel.create(req.body)
 
         const payload = {
             'username': req.body.username,
-            'password': req.body.password
+            'password': req.body.password,
+            'user_id': savedUser._id
         }
 
         const token = auth.createToken(payload)
@@ -67,7 +72,36 @@ controller.register = async (req, res) => {
 
 controller.getUser = async (req, res) => {
 
-    if (!req.query.user_id) { return res.sendStatus(400) }
+    try {
+
+        if (!req.query.user_id) { return res.sendStatus(400) }
+
+        if (!await auth.verifyTokenHeader(req,res)){return res.sendStatus(401)}
+
+        const user = await userModel.findById({ _id: req.query.user_id }, '-_id -password -__v -birthdate')
+
+        if (!user) { return res.status(404).json({ message: 'User not found', statusCode: 404 }) }
+
+        const likes = await likesModel.find({ liked_by: req.query.user_id })
+        const posts = await postsModel.find({ author: req.query.user_id })
+        const followers = await followModel.find({ following_id: req.query.user_id, status: 'ACEEPTED' })
+        const following = await followModel.find({ follower_id: req.query.user_id, status: 'ACCEPTED' })
+
+        const userInfo = {
+            ...user._doc,
+            "liked_count": likes.length,
+            "posts_count": posts.length,
+            "followers_count": followers.length,
+            "followed_count": following.length
+        }
+
+        return res.status(200).json(userInfo)
+
+    } catch (error) {
+        console.log(error)
+        res.sendStatus(500)
+    }
 
 }
+
 module.exports = controller

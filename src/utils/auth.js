@@ -15,7 +15,7 @@ controller.verifyTokenHeader = async (req, res) => {
 
 controller.verifyTokenBody = async (req, res) => {
     try {
-        const token = req.body.token
+        const token = await req.body.token
         jwt.verify(token, process.env.ACCESS_TOKEN_SECRET)
         return true
     } catch (error) {
