@@ -1,6 +1,6 @@
 const { Router } = require('express');
 const router = Router();
-const { request, response, followers, following } = require('../controllers/followRoutesController')
+const { request, response, followers, following, requests } = require('../controllers/followRoutesController')
 
 router.route('/request')
     .post(request)
@@ -9,9 +9,12 @@ router.route('/response')
     .post(response)
 
 router.route('/followers')
-    .post(followers)
+    .get(followers)
 
 router.route('/following')
-    .post(following)
+    .get(following)
+
+router.route('/requests')
+    .get(requests)
 
 module.exports = router;

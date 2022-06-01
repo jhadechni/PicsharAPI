@@ -1,12 +1,14 @@
 const controller = {}
 const followModel = require('../models/followModel')
+const auth = require("../utils/auth")
 
 controller.request = async (req, res) => {
     try {
-        if (await auth.verifyTokenBody(req, res) && req.body.user_id) {
+        if (await auth.verifyTokenHeader(req, res) && req.body.user_id) {
             const follow = await followModel.findOne({ 
                 follower_id  : req.user.user_id, 
-                following_id : req.body.user_id
+                following_id : req.body.user_id,
+                status: 'accept'
             }, '-_v -_id');
             if (follow) { 
                 return res.status(404).json({ message: "Already followed.", statusCode: 404 })
@@ -28,7 +30,7 @@ controller.request = async (req, res) => {
 
 controller.response = async (req, res) => {
     try {
-        if (await auth.verifyTokenBody(req, res) && req.body.request_id && req.body.action) {
+        if (await auth.verifyTokenHeader(req, res) && req.body.request_id && req.body.action) {
             const follow = await followModel.findById(req.body.request_id);
             if (follow.following_id !== req.user.user_id) { 
                 return res.status(404).json({ message: "Forbidden.", statusCode: 404 })
@@ -46,7 +48,7 @@ controller.response = async (req, res) => {
 
 controller.followers = async (req, res) => {
     try {
-        if (await auth.verifyTokenBody(req, res) && req.query.user_id) {
+        if (await auth.verifyTokenHeader(req, res) && req.query.user_id) {
             if (req.user.user_id === req.query.user_id || await followModel.findOne({
                 follower_id: req.user.user_id,
                 following_id: req.query.user_id,
@@ -55,8 +57,10 @@ controller.followers = async (req, res) => {
                 const follow = await followModel.find({
                     following_id: req.query.user_id,
                     status: 'accept'
+                }, {
+                    "user_id" : "$follower_id"
                 });
-                return res.status(200).json(follow)
+                return res.status(200).json(follow.map(user => user._doc.user_id))
             }else {
                 return res.status(404).json({ message: 'No valido', statusCode: 401 })
             }
@@ -70,7 +74,7 @@ controller.followers = async (req, res) => {
 
 controller.following = async (req, res) => {
     try {
-        if (await auth.verifyTokenBody(req, res) && req.query.user_id) {
+        if (await auth.verifyTokenHeader(req, res) && req.query.user_id) {
             if (req.user.user_id === req.query.user_id || await followModel.findOne({
                 follower_id: req.user.user_id,
                 following_id: req.query.user_id,
@@ -79,8 +83,10 @@ controller.following = async (req, res) => {
                 const follow = await followModel.find({
                     follower_id: req.query.user_id,
                     status: 'accept'
+                }, {
+                    "user_id" : "$following_id"
                 });
-                return res.status(200).json(follow)
+                return res.status(200).json(follow.map(user => user._doc.user_id))
             }else {
                 return res.status(404).json({ message: 'No valido', statusCode: 401 })
             }
@@ -92,5 +98,20 @@ controller.following = async (req, res) => {
     }
 }
 
+controller.requests = async (req, res) => {
+    try {
+        if (await auth.verifyTokenHeader(req, res)) {
+            const follow = await followModel.find({
+                following_id: req.user.user_id,
+                status: 'pending'
+            });
+            return res.status(200).json(follow)
+        } else {
+            return res.status(404).json({ message: 'No valido', statusCode: 401 })
+        }
+    } catch (error) {
+        res.status(500).json({ data: "Server internal error" })
+    }
+}
 
 module.exports = controller
