@@ -1,11 +1,12 @@
-const { verifyTokenBody } = require("../utils/auth")
-
 const controller = {}
+const { verifyTokenBody } = require("../utils/auth")
+const bcrypt = require('bcrypt')
 
 controller.login = async (req, res) => {
 
     try {
-        if (req.body.username || req.body.password) {
+
+        if (req.body.username && req.body.password) {
 
             const user = await userModel.findOne({ username: req.body.username }, '-_v -_id -password')
 
@@ -29,7 +30,7 @@ controller.login = async (req, res) => {
             if (!req.body.token) { return res.sendStatus(400) }
 
             if (!await verifyTokenBody(req, res)) { return res.status(401).json({ message: 'token no valido', statusCode: 401 }) }
-            
+
             return res.status(200).json({ token })
         }
     } catch (error) {
@@ -38,5 +39,42 @@ controller.login = async (req, res) => {
     }
 }
 
+controller.register = async (req, res) => {
 
+    if (!req.body.username || !req.body.password || !req.body.email || !req.body.birthdate || !req.body.bio) { return res.sendStatus(400) }
+
+    const user = await userModel.findOne({ cedula: req.body.cedula })
+
+    try {
+
+        if (user) { return res.status(208).json({ message: "User already exist" }) }
+
+        const salt = await bcrypt.genSalt(10)
+
+        req.body.password = await bcrypt.hash(req.body.password, salt)
+
+        await userModel.create(req.body)
+
+        const payload = {
+            'username': req.body.username,
+            'password': req.body.password
+        }
+
+        const token = auth.createToken(payload)
+
+        return res.status(201).json({ token })
+
+    } catch (error) {
+
+        console.log(error)
+
+        return res.status(500).json({ data: "Server internal error", error: error })
+    }
+}
+
+controller.getUser = async (req, res) => {
+
+    if (!req.query.user_id) { return res.sendStatus(400) }
+    
+}
 module.exports = controller
