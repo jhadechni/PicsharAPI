@@ -2,7 +2,7 @@ const controller = {}
 const auth = require("../utils/auth")
 const bcrypt = require('bcrypt')
 const userModel = require('../models/userModel')
-const likesModel = require('../models/likesModel')
+const likeModel = require('../models/likeModel')
 const followModel = require('../models/followModel')
 const postsModel = require('../models/postModel')
 
@@ -43,7 +43,7 @@ controller.login = async (req, res) => {
 
 controller.register = async (req, res) => {
 
-    if (!req.body.username || !req.body.password || !req.body.email || !req.body.bio) { return res.sendStatus(400) }
+    if (!req.body.username || !req.body.password || !req.body.email || !req.body.bio || !req.body.public_likes) { return res.sendStatus(400) }
 
     const user = await userModel.findOne({ username: req.body.username })
     try {
@@ -81,10 +81,10 @@ controller.getUser = async (req, res) => {
 
         if (!user) { return res.status(404).json({ message: 'User not found', statusCode: 404 }) }
 
-        const likes = await likesModel.find({ liked_by: req.query.user_id })
+        const likes = await likeModel.find({ user_id: req.query.user_id })
         const posts = await postsModel.find({ author: req.query.user_id })
-        const followers = await followModel.find({ following_id: req.query.user_id, status: 'ACEEPTED' })
-        const following = await followModel.find({ follower_id: req.query.user_id, status: 'ACCEPTED' })
+        const followers = await followModel.find({ following_id: req.query.user_id, status: 'accept' })
+        const following = await followModel.find({ follower_id: req.query.user_id, status: 'accept' })
 
         const userInfo = {
             ...user._doc,

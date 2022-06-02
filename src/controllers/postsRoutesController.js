@@ -1,9 +1,13 @@
 const controller = {};
+const mongoose = require('mongoose')
+
 const auth = require("../utils/auth");
 const postModel = require('../models/postModel');
 const followModel = require('../models/followModel');
 const commentModel = require('../models/commentModel');
 const saveModel = require('../models/saveModel');
+const likeModel = require('../models/likeModel');
+const userModel = require('../models/userModel');
 
 controller.post = async (req,res) => {
     try {
@@ -33,6 +37,33 @@ controller.get = async (req, res) => {
             }else {
                 return res.status(404).json({ message: 'No valido', statusCode: 401 })
             }
+        }else if (req.body.post_id){
+            const pipeline = [
+                {
+                    $match: {
+                        "_id": mongoose.Types.ObjectId(req.body.post_id),
+                    }
+                },
+                {
+                    $lookup: {
+                      from: 'comments',
+                      localField: '_id',
+                      foreignField: 'post_id',
+                      as: 'comments'
+                    }
+                },
+                {
+                    $lookup: {
+                      from: 'likes',
+                      localField: '_id',
+                      foreignField: 'post_id',
+                      as: 'likes'
+                    }
+                }
+            ];
+            const post = await postModel.aggregate(pipeline);
+            post['0'].likes = post['0'].likes.length;
+            return res.status(200).json(post);
         } else {
             return res.status(404).json({ message: 'No valido', statusCode: 401 })
         }
@@ -90,7 +121,7 @@ controller.timeline = async (req, res) => {
             if (req.query.offset) pipeline.push({"$skip": parseInt(req.query.offset)});
             if (req.query.limit)  pipeline.push({"$limit": parseInt(req.query.limit)});
             const posts = await postModel.aggregate(pipeline);
-            return res.status(200).json(posts);
+            return res.status(200).json(posts.map(post => post.posts));
         } else {
             return res.status(404).json({ message: 'No valido', statusCode: 401 })
         }
@@ -103,7 +134,7 @@ controller.comment = async (req, res) => {
     try {
         if (await auth.verifyTokenHeader(req, res) && req.body.post_id && req.body.comment) {
             const comment = await commentModel.create({
-                post_id: req.body.post_id,
+                post_id: mongoose.Types.ObjectId(req.body.post_id),
                 comment: req.body.comment,
                 user_id: req.user.user_id
             });
@@ -118,14 +149,151 @@ controller.comment = async (req, res) => {
 
 controller.save = async (req, res) => {
     try {
-        if (await auth.verifyTokenHeader(req, res) && req.body.post_id) {
+        if (await auth.verifyTokenHeader(req, res) && req.body.post_id && !await saveModel.findOne({
+            post_id: mongoose.Types.ObjectId(req.body.post_id),
+            user_id: req.user.user_id
+        })) {
             const save = await saveModel.create({
-                post_id: req.body.post_id,
+                post_id: mongoose.Types.ObjectId(req.body.post_id),
                 user_id: req.user.user_id
             });
             return res.status(200).json(save)
         } else {
             return res.status(404).json({ message: 'No valido', statusCode: 401 })
+        }
+    } catch (error) {
+        res.status(500).json({ data: "Server internal error" })
+    }
+}
+
+controller.savedBy = async (req, res) => {
+    try {
+        if (await auth.verifyTokenHeader(req, res) ) {
+            const pipeline = [
+                {
+                    "$project": {
+                        "_id": 0,
+                        "posts": "$$ROOT"
+                    }
+                }, 
+                {
+                    "$lookup": {
+                        "localField": "posts._id",
+                        "from": "saves",
+                        "foreignField": "post_id",
+                        "as": "saves"
+                    }
+                }, 
+                {
+                    "$unwind": {
+                        "path": "$saves",
+                        "preserveNullAndEmptyArrays": false
+                    }
+                }, 
+                {
+                    "$match": {
+                        "saves.user_id": req.user.user_id
+                    }
+                }, 
+                {
+                    "$sort": {
+                        "posts.created_date": -1
+                    }
+                }, 
+                {
+                    "$project": {
+                        "posts._id": "$posts._id",
+                        "posts.img_url": "$posts.img_url",
+                        "posts.bio": "$posts.bio",
+                        "posts.author": "$posts.author",
+                        "posts.created_date": "$posts.created_date",
+                        "_id": 0
+                    }
+                }
+            ];
+            const posts = await postModel.aggregate(pipeline);
+            return res.status(200).json(posts.map(post => post.posts))
+        } else {
+            return res.status(404).json({ message: 'No valido', statusCode: 401 })
+        }
+    } catch (error) {
+        res.status(500).json({ data: "Server internal error" })
+    }
+}
+
+controller.like = async (req, res) => {
+    try {
+        if (await auth.verifyTokenHeader(req, res) && req.body.post_id && !await likeModel.findOne({
+            post_id: mongoose.Types.ObjectId(req.body.post_id),
+            user_id: req.user.user_id
+        })) {
+            const save = await likeModel.create({
+                post_id: mongoose.Types.ObjectId(req.body.post_id),
+                user_id: req.user.user_id
+            });
+            return res.status(200).json(save)
+        } else {
+            return res.status(404).json({ message: 'No valido', statusCode: 401 })
+        }
+    } catch (error) {
+        res.status(500).json({ data: "Server internal error" })
+    }
+}
+
+controller.likedBy = async (req, res) => {
+    try {
+        if (await auth.verifyTokenHeader(req, res) && req.query.user_id) {
+            const user = await userModel.findById(req.query.user_id);
+            if (req.user.user_id === req.query.user_id || user.public_likes){
+                const pipeline = [
+                    {
+                        "$project": {
+                            "_id": 0,
+                            "posts": "$$ROOT"
+                        }
+                    }, 
+                    {
+                        "$lookup": {
+                            "localField": "posts._id",
+                            "from": "likes",
+                            "foreignField": "post_id",
+                            "as": "likes"
+                        }
+                    }, 
+                    {
+                        "$unwind": {
+                            "path": "$likes",
+                            "preserveNullAndEmptyArrays": false
+                        }
+                    }, 
+                    {
+                        "$match": {
+                            "likes.user_id": req.query.user_id
+                        }
+                    }, 
+                    {
+                        "$sort": {
+                            "posts.created_date": -1
+                        }
+                    }, 
+                    {
+                        "$project": {
+                            "posts._id": "$posts._id",
+                            "posts.img_url": "$posts.img_url",
+                            "posts.bio": "$posts.bio",
+                            "posts.author": "$posts.author",
+                            "posts.created_date": "$posts.created_date",
+                            "_id": 0
+                        }
+                    }
+                ];
+                const liked_posts = await postModel.aggregate(pipeline);
+                return res.status(200).json(liked_posts.map(post => post.posts))
+            } else {
+                return res.status(404).json({ message: 'No valido' })
+            }
+        } else {
+            return res.status(404).json({ message: 'No valido' })
         }
     } catch (error) {
         res.status(500).json({ data: "Server internal error" })
