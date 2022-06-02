@@ -11,7 +11,6 @@ controller.login = async (req, res) => {
     try {
 
         if (req.body.username && req.body.password) {
-
             const user = await userModel.findOne({ username: req.body.username }, '-_v')
             if (!user) { return res.status(404).json({ message: "Username incorrect", statusCode: 404 }) }
 
@@ -30,13 +29,14 @@ controller.login = async (req, res) => {
 
             if (!req.body.token) { return res.sendStatus(400) }
             if (!await auth.verifyTokenBody(req, res)) { return res.status(401).json({ message: 'token no valido', statusCode: 401 }) }
-            return res.sendStatus(200).json(req.body.token)
+            token = req.body.token
+            return res.status(200).json({token})
 
         }
     } catch (error) {
 
         console.log(error)
-        res.status(500).json({ data: "Server internal error" })
+        return res.status(500).json({ message : "Server internal error" })
 
     }
 }
@@ -48,7 +48,7 @@ controller.register = async (req, res) => {
     const user = await userModel.findOne({ username: req.body.username })
     try {
 
-        if (user) { return res.status(208).json({ message: "User already exist" }) }
+        if (user) { return res.status(409).json({ message: "User already exist" }) }
         const salt = await bcrypt.genSalt(10)
         req.body.password = await bcrypt.hash(req.body.password, salt)
         const savedUser = await userModel.create(req.body)

@@ -8,7 +8,8 @@
   "license": "MIT",
   "scripts": {
     "start": "node src/index.js",
-    "dev": "nodemon src/index.js"
+    "dev": "nodemon src/index.js",
+    "test": "jest --runInBand"
   },
   "dependencies": {
     "bcrypt": "^5.0.1",
@@ -21,6 +22,8 @@
   },
   "devDependencies": {
     "@shelf/jest-mongodb": "^3.0.1",
-    "nodemon": "^2.0.16"
+    "jest": "^28.1.0",
+    "nodemon": "^2.0.16",
+    "supertest": "^6.2.3"
   }
 }
