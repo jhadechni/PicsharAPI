@@ -6,6 +6,7 @@ const userSchema = new mongoose.Schema({
     bio: { type: String, default: '' },
     password: { type: String, required: true },
     birthdate: { type: Date, default: Date.now },
+    public_likes: {type: Boolean, default: true}
 })
 
 
