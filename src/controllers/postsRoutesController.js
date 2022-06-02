@@ -303,7 +303,7 @@ controller.likedBy = async (req, res) => {
                 return res.status(404).json({ message: 'No valido' })
             }
         } else {
-            return res.status(404).json({ message: 'No valido' })
+            return res.status(404).json({ message: 'Token no valido' })
         }
     } catch (error) {
         res.status(500).json({ data: "Server internal error" })

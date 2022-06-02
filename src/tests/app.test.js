@@ -11,6 +11,8 @@ require('dotenv').config();
 let token
 let user_id
 let user_id2
+let response_id
+let post_id
 
 beforeAll(async () => {
     await mongoose.connect(global.__MONGO_URI__);
@@ -115,6 +117,7 @@ test('Posts, likes, followers and follows creation ', async () => {
     const newPost1 = await postsModel.create(post1)
     const newPost2 = await postsModel.create(post2)
     await postsModel.create(post3)
+    post_id = newPost1._id
 
     //LIKES
     const like1 = {
@@ -151,8 +154,9 @@ test('Posts, likes, followers and follows creation ', async () => {
         following_id: user_id,
         status: "accept"
     }
-    await followModel.create(follow1)
+    const follow = await followModel.create(follow1)
     await followModel.create(follow2)
+    response_id = follow._id
 })
 
 test('Numero de publicaciones del usuario refleja el numero correcto', async () => {
@@ -173,18 +177,14 @@ test('Numero de seguidos refleja el numero correcto', async () => {
     expect(response.body.followed_count === followedCount)
 })
 
-//CHECK
 test('Lista de seguidores de un usuario', async () => {
     const response = await supertest(app).get('/follows/followers').query({ user_id }).auth(token, { type: 'bearer' })
-    console.log(response.body)
-    expect(response.statusCode).toEqual(200)
+    expect(response.statusCode).toEqual(200) && expect(response.body).toBeDefined()
 })
 
-//CHECK
 test('Lista de seguidos de un usuario', async () => {
     const response = await supertest(app).get('/follows/following').query({ user_id }).auth(token, { type: 'bearer' })
-    console.log(response.body)
-    expect(response.statusCode).toEqual(200)
+    expect(response.statusCode).toEqual(200) && expect(response.body).toBeDefined()
 })
 
 test('Solicitar seguir', async () => {
@@ -195,10 +195,46 @@ test('Solicitar seguir', async () => {
     expect(response.statusCode).toEqual(404) && expect(response.body.message).toEqual('Already followed.')
 })
 
-test('Dar me gusta a una publicación', async () => {
+test('Aceptar solicitud', async () => {
     const info = {
-        "user_id": user_id2
+        "request_id": response_id,
+        "action" : "accept"
     }
-    const response = await supertest(app).post('/follows/request').send(info).auth(token, { type: 'bearer' })
-    expect(response.statusCode).toEqual(404) && expect(response.body.message).toEqual('Already followed.')
+    const response = await supertest(app).get('/follows/requests').send(info).auth(token, { type: 'bearer' })
+    expect(response.statusCode).toEqual(200) && expect(response.body.message).toEqual('OK')
+})
+
+test('Rechazar solicitud', async () => {
+    const info = {
+        "request_id": response_id,
+        "action" : "reject"
+    }
+    const response = await supertest(app).get('/follows/requests').send(info).auth(token, { type: 'bearer' })
+    expect(response.statusCode).toEqual(200) && expect(response.body.message).toEqual('OK')
+})
+
+test('Dar me gusta a publicación', async () => {
+   
+    const response = await supertest(app).post('/posts/like').send({user_id}).auth(token, { type: 'bearer' })
+    expect(response.statusCode).toEqual(404) && expect(response.body.message).toEqual('Already liked')
+})
+
+//CHECK
+test('Publicaciones "gustadas" por un usuario', async () => {
+   
+    const response = await supertest(app).get('/posts/liked-by').query({user_id}).auth(token, { type: 'bearer' })
+    expect(response.statusCode).toEqual(200) && expect(response.body).toBeDefined()
+})
+
+test('Guardar publicación', async () => {
+    const response = await supertest(app).post('/posts/save').send({post_id}).auth(token, { type: 'bearer' })
+    const postSaved = await postsModel.findById({_id : post_id})
+    expect(response.statusCode).toEqual(200) && expect(response.body === postSaved)
+})
+
+//CHECK
+test('Publicaciones guardadas por un usuario', async () => {
+    const response = await supertest(app).get('/posts/saved-by').auth(token, { type: 'bearer' })
+    console.log(response.body)
+    expect(response.statusCode).toEqual(200)
 })
