@@ -1,6 +1,7 @@
 const usersModel = require('../models/userModel')
 const postsModel = require('../models/postModel')
 const likeModel = require('../models/likeModel')
+const commentModel = require('../models/commentModel')
 const followModel = require('../models/followModel')
 const mongoose = require('mongoose')
 const app = require('../app')
@@ -198,7 +199,7 @@ test('Solicitar seguir', async () => {
 test('Aceptar solicitud', async () => {
     const info = {
         "request_id": response_id,
-        "action" : "accept"
+        "action": "accept"
     }
     const response = await supertest(app).get('/follows/requests').send(info).auth(token, { type: 'bearer' })
     expect(response.statusCode).toEqual(200) && expect(response.body.message).toEqual('OK')
@@ -207,34 +208,51 @@ test('Aceptar solicitud', async () => {
 test('Rechazar solicitud', async () => {
     const info = {
         "request_id": response_id,
-        "action" : "reject"
+        "action": "reject"
     }
     const response = await supertest(app).get('/follows/requests').send(info).auth(token, { type: 'bearer' })
     expect(response.statusCode).toEqual(200) && expect(response.body.message).toEqual('OK')
 })
 
 test('Dar me gusta a publicación', async () => {
-   
-    const response = await supertest(app).post('/posts/like').send({user_id}).auth(token, { type: 'bearer' })
+
+    const response = await supertest(app).post('/posts/like').send({ user_id }).auth(token, { type: 'bearer' })
     expect(response.statusCode).toEqual(404) && expect(response.body.message).toEqual('Already liked')
 })
 
-//CHECK
 test('Publicaciones "gustadas" por un usuario', async () => {
-   
-    const response = await supertest(app).get('/posts/liked-by').query({user_id}).auth(token, { type: 'bearer' })
-    expect(response.statusCode).toEqual(200) && expect(response.body).toBeDefined()
+
+    const response = await supertest(app).get('/posts/liked-by').query({ user_id }).auth(token, { type: 'bearer' })
+    expect(response.statusCode).toEqual(200) && expect(response.body[0].author).toEqual(user_id)
 })
 
 test('Guardar publicación', async () => {
-    const response = await supertest(app).post('/posts/save').send({post_id}).auth(token, { type: 'bearer' })
-    const postSaved = await postsModel.findById({_id : post_id})
+    const response = await supertest(app).post('/posts/save').send({ post_id }).auth(token, { type: 'bearer' })
+    const postSaved = await postsModel.findById({ _id: post_id })
     expect(response.statusCode).toEqual(200) && expect(response.body === postSaved)
 })
 
-//CHECK
 test('Publicaciones guardadas por un usuario', async () => {
     const response = await supertest(app).get('/posts/saved-by').auth(token, { type: 'bearer' })
-    console.log(response.body)
-    expect(response.statusCode).toEqual(200)
+    const post = await postsModel.findById({ _id: response.body[0]._id })
+    expect(response.statusCode).toEqual(200) && expect(response.body[0].bio).toEqual(post.bio)
+})
+
+test('Comentar publicación', async () => {
+    const info = {
+        "post_id": post_id,
+        "comment": "Cule meme bacano compa!"
+    }
+    const response = await supertest(app).post('/posts/comment').send(info).auth(token, { type: 'bearer' })
+    const commentSaved = await commentModel.findById({ _id: response.body.post_id })
+    expect(response.statusCode).toEqual(200) && expect(response.body === commentSaved)
+})
+
+test('Comentarios de una publicación', async () => {
+    const info = {
+        "post_id": post_id,
+    }
+    const response = await supertest(app).get('/posts/').send(info).auth(token, { type: 'bearer' })
+    const commentSaved = await commentModel.find({ post_id: response.body.post_id })
+    expect(response.statusCode).toEqual(200) && expect(response.body.comments).toEqual(commentSaved)
 })

@@ -9,7 +9,7 @@ const saveModel = require('../models/saveModel');
 const likeModel = require('../models/likeModel');
 const userModel = require('../models/userModel');
 
-controller.post = async (req,res) => {
+controller.post = async (req, res) => {
     try {
         if (await auth.verifyTokenHeader(req, res) && req.body.img_url && req.body.bio && req.body.author) {
             const createdPost = await postModel.create(req.body);
@@ -34,10 +34,10 @@ controller.get = async (req, res) => {
                     author: req.query.author
                 });
                 return res.status(200).json(posts)
-            }else {
+            } else {
                 return res.status(404).json({ message: 'No valido', statusCode: 401 })
             }
-        }else if (req.body.post_id){
+        } else if (req.body.post_id) {
             const pipeline = [
                 {
                     $match: {
@@ -46,18 +46,18 @@ controller.get = async (req, res) => {
                 },
                 {
                     $lookup: {
-                      from: 'comments',
-                      localField: '_id',
-                      foreignField: 'post_id',
-                      as: 'comments'
+                        from: 'comments',
+                        localField: '_id',
+                        foreignField: 'post_id',
+                        as: 'comments'
                     }
                 },
                 {
                     $lookup: {
-                      from: 'likes',
-                      localField: '_id',
-                      foreignField: 'post_id',
-                      as: 'likes'
+                        from: 'likes',
+                        localField: '_id',
+                        foreignField: 'post_id',
+                        as: 'likes'
                     }
                 }
             ];
@@ -91,7 +91,7 @@ controller.timeline = async (req, res) => {
                         "_id": 0,
                         "posts": "$$ROOT"
                     }
-                }, 
+                },
                 {
                     "$lookup": {
                         "localField": "posts.author",
@@ -99,24 +99,24 @@ controller.timeline = async (req, res) => {
                         "foreignField": "following_id",
                         "as": "follows"
                     }
-                }, 
+                },
                 {
                     "$unwind": {
                         "path": "$follows",
                         "preserveNullAndEmptyArrays": false
                     }
-                }, 
+                },
                 {
                     "$match": {
                         "follows.follower_id": mongoose.Types.ObjectId(req.user.user_id),
                         "follows.status": "accept"
                     }
-                }, 
+                },
                 {
                     "$sort": {
                         "posts.created_date": -1
                     }
-                }, 
+                },
                 {
                     "$project": {
                         "posts._id": "$posts._id",
@@ -128,8 +128,8 @@ controller.timeline = async (req, res) => {
                     }
                 }
             ];
-            if (req.query.offset) pipeline.push({"$skip": parseInt(req.query.offset)});
-            if (req.query.limit)  pipeline.push({"$limit": parseInt(req.query.limit)});
+            if (req.query.offset) pipeline.push({ "$skip": parseInt(req.query.offset) });
+            if (req.query.limit) pipeline.push({ "$limit": parseInt(req.query.limit) });
             const posts = await postModel.aggregate(pipeline);
             return res.status(200).json(posts.map(post => post.posts));
         } else {
@@ -178,14 +178,14 @@ controller.save = async (req, res) => {
 
 controller.savedBy = async (req, res) => {
     try {
-        if (await auth.verifyTokenHeader(req, res) ) {
+        if (await auth.verifyTokenHeader(req, res)) {
             const pipeline = [
                 {
                     "$project": {
                         "_id": 0,
                         "posts": "$$ROOT"
                     }
-                }, 
+                },
                 {
                     "$lookup": {
                         "localField": "posts._id",
@@ -193,23 +193,23 @@ controller.savedBy = async (req, res) => {
                         "foreignField": "post_id",
                         "as": "saves"
                     }
-                }, 
+                },
                 {
                     "$unwind": {
                         "path": "$saves",
                         "preserveNullAndEmptyArrays": false
                     }
-                }, 
+                },
                 {
                     "$match": {
                         "saves.user_id": mongoose.Types.ObjectId(req.user.user_id)
                     }
-                }, 
+                },
                 {
                     "$sort": {
                         "posts.created_date": -1
                     }
-                }, 
+                },
                 {
                     "$project": {
                         "posts._id": "$posts._id",
@@ -254,14 +254,14 @@ controller.likedBy = async (req, res) => {
     try {
         if (await auth.verifyTokenHeader(req, res) && req.query.user_id) {
             const user = await userModel.findById(req.query.user_id);
-            if (req.user.user_id === req.query.user_id || user.public_likes){
+            if (req.user.user_id === req.query.user_id || user.public_likes) {
                 const pipeline = [
                     {
                         "$project": {
                             "_id": 0,
                             "posts": "$$ROOT"
                         }
-                    }, 
+                    },
                     {
                         "$lookup": {
                             "localField": "posts._id",
@@ -269,23 +269,23 @@ controller.likedBy = async (req, res) => {
                             "foreignField": "post_id",
                             "as": "likes"
                         }
-                    }, 
+                    },
                     {
                         "$unwind": {
                             "path": "$likes",
                             "preserveNullAndEmptyArrays": false
                         }
-                    }, 
+                    },
                     {
                         "$match": {
                             "likes.user_id": mongoose.Types.ObjectId(req.query.user_id)
                         }
-                    }, 
+                    },
                     {
                         "$sort": {
                             "posts.created_date": -1
                         }
-                    }, 
+                    },
                     {
                         "$project": {
                             "posts._id": "$posts._id",
