@@ -1,5 +1,9 @@
 const controller = {}
-const followModel = require('../models/followModel')
+
+const mongoose = require('mongoose');
+
+const followModel = require('../models/followModel');
+const userModel = require('../models/userModel');
 const auth = require("../utils/auth")
 
 controller.request = async (req, res) => {
@@ -8,10 +12,10 @@ controller.request = async (req, res) => {
             const follow = await followModel.findOne({ 
                 follower_id  : req.user.user_id, 
                 following_id : req.body.user_id,
-                status: 'accept'
-            }, '-_v -_id');
-            if (follow) { 
-                return res.status(404).json({ message: "Already followed.", statusCode: 404 })
+                $or: [{ status: 'accept' }, { status: 'pending' }]
+            });
+            if (follow) {
+                return res.status(404).json({ message: follow.status === 'accept' ? 'Already followd' : 'Already a request pending', statusCode: 404 })
             } else {
                 await followModel.create({
                     follower_id : req.user.user_id,
@@ -32,7 +36,7 @@ controller.response = async (req, res) => {
     try {
         if (await auth.verifyTokenHeader(req, res) && req.body.request_id && req.body.action) {
             const follow = await followModel.findById(req.body.request_id);
-            if (follow.following_id !== req.user.user_id) { 
+            if (follow.following_id.toString() !== req.user.user_id) { 
                 return res.status(404).json({ message: "Forbidden.", statusCode: 404 })
             } else {
                 await followModel.updateOne({ _id: req.body.request_id }, { status: req.body.action });
@@ -54,13 +58,44 @@ controller.followers = async (req, res) => {
                 following_id: req.query.user_id,
                 status: 'accept'
             })) {
-                const follow = await followModel.find({
-                    following_id: req.query.user_id,
-                    status: 'accept'
-                }, {
-                    "user_id" : "$follower_id"
-                });
-                return res.status(200).json(follow.map(user => user._doc.user_id))
+                const pipeline = [
+                    {
+                        "$project": {
+                            "_id": 0,
+                            "users": "$$ROOT"
+                        }
+                    }, 
+                    {
+                        "$lookup": {
+                            "localField": "users._id",
+                            "from": "follows",
+                            "foreignField": "follower_id",
+                            "as": "follows"
+                        }
+                    }, 
+                    {
+                        "$unwind": {
+                            "path": "$follows",
+                            "preserveNullAndEmptyArrays": false
+                        }
+                    }, 
+                    {
+                        "$match": {
+                            "follows.status": "accept",
+                            "follows.following_id" : mongoose.Types.ObjectId(req.query.user_id)
+                        }
+                    }, 
+                    {
+                        "$project": {
+                            "users._id": "$users._id",
+                            "users.username": "$users.username",
+                            "users.bio": "$users.bio",
+                            "_id": 0
+                        }
+                    }
+                ];
+                const follow = await userModel.aggregate(pipeline);
+                return res.status(200).json(follow.map(user => user.users))
             } else {
                 return res.status(404).json({ message: 'No valido', statusCode: 401 })
             }
@@ -68,6 +103,7 @@ controller.followers = async (req, res) => {
             return res.status(404).json({ message: 'No valido', statusCode: 401 })
         }
     } catch (error) {
+        console.log(error);
         res.status(500).json({ data: "Server internal error" })
     }
 }
@@ -80,13 +116,44 @@ controller.following = async (req, res) => {
                 following_id: req.query.user_id,
                 status: 'accept'
             })) {
-                const follow = await followModel.find({
-                    follower_id: req.query.user_id,
-                    status: 'accept'
-                }, {
-                    "user_id" : "$following_id"
-                });
-                return res.status(200).json(follow.map(user => user._doc.user_id))
+                const pipeline = [
+                    {
+                        "$project": {
+                            "_id": 0,
+                            "users": "$$ROOT"
+                        }
+                    }, 
+                    {
+                        "$lookup": {
+                            "localField": "users._id",
+                            "from": "follows",
+                            "foreignField": "following_id",
+                            "as": "follows"
+                        }
+                    }, 
+                    {
+                        "$unwind": {
+                            "path": "$follows",
+                            "preserveNullAndEmptyArrays": false
+                        }
+                    }, 
+                    {
+                        "$match": {
+                            "follows.status": "accept",
+                            "follows.follower_id" : mongoose.Types.ObjectId(req.query.user_id)
+                        }
+                    }, 
+                    {
+                        "$project": {
+                            "users._id": "$users._id",
+                            "users.username": "$users.username",
+                            "users.bio": "$users.bio",
+                            "_id": 0
+                        }
+                    }
+                ];
+                const follow = await userModel.aggregate(pipeline);
+                return res.status(200).json(follow.map(user => user.users))
             }else {
                 return res.status(404).json({ message: 'No valido', statusCode: 401 })
             }

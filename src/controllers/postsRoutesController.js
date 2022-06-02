@@ -62,12 +62,22 @@ controller.get = async (req, res) => {
                 }
             ];
             const post = await postModel.aggregate(pipeline);
-            post['0'].likes = post['0'].likes.length;
-            return res.status(200).json(post);
+            if (post['0']) {
+                const data = {
+                    img_url: post['0'].img_url,
+                    bio: post['0'].bio,
+                    author: post['0'].author,
+                    likes: post['0'].likes.length,
+                    comments: post['0'].comments
+                }
+                return res.status(200).json(data);
+            }
+            return res.status(404).json({ message: 'Not found', statusCode: 404 });
         } else {
-            return res.status(404).json({ message: 'No valido', statusCode: 401 })
+            return res.status(404).json({ message: 'No valido', statusCode: 404 })
         }
     } catch (error) {
+        console.log(error)
         res.status(500).json({ data: "Server internal error" })
     }
 }
@@ -98,7 +108,7 @@ controller.timeline = async (req, res) => {
                 }, 
                 {
                     "$match": {
-                        "follows.follower_id": req.user.user_id,
+                        "follows.follower_id": mongoose.Types.ObjectId(req.user.user_id),
                         "follows.status": "accept"
                     }
                 }, 
@@ -134,7 +144,7 @@ controller.comment = async (req, res) => {
     try {
         if (await auth.verifyTokenHeader(req, res) && req.body.post_id && req.body.comment) {
             const comment = await commentModel.create({
-                post_id: mongoose.Types.ObjectId(req.body.post_id),
+                post_id: req.body.post_id,
                 comment: req.body.comment,
                 user_id: req.user.user_id
             });
@@ -192,7 +202,7 @@ controller.savedBy = async (req, res) => {
                 }, 
                 {
                     "$match": {
-                        "saves.user_id": req.user.user_id
+                        "saves.user_id": mongoose.Types.ObjectId(req.user.user_id)
                     }
                 }, 
                 {
@@ -224,16 +234,16 @@ controller.savedBy = async (req, res) => {
 controller.like = async (req, res) => {
     try {
         if (await auth.verifyTokenHeader(req, res) && req.body.post_id && !await likeModel.findOne({
-            post_id: mongoose.Types.ObjectId(req.body.post_id),
+            post_id: req.body.post_id,
             user_id: req.user.user_id
         })) {
             const save = await likeModel.create({
-                post_id: mongoose.Types.ObjectId(req.body.post_id),
+                post_id: req.body.post_id,
                 user_id: req.user.user_id
             });
             return res.status(200).json(save)
         } else {
-            return res.status(404).json({ message: 'No valido', statusCode: 401 })
+            return res.status(404).json({ message: 'Already liked', statusCode: 401 })
         }
     } catch (error) {
         res.status(500).json({ data: "Server internal error" })
@@ -268,7 +278,7 @@ controller.likedBy = async (req, res) => {
                     }, 
                     {
                         "$match": {
-                            "likes.user_id": req.query.user_id
+                            "likes.user_id": mongoose.Types.ObjectId(req.query.user_id)
                         }
                     }, 
                     {

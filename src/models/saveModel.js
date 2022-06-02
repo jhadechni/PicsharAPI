@@ -2,7 +2,7 @@ const mongoose = require('mongoose')
 
 const saveSchema = new mongoose.Schema({
     post_id: { type: mongoose.Types.ObjectId, required: true },
-    user_id: { type: String, required: true }
+    user_id: { type: mongoose.Types.ObjectId, required: true }
 }, { timestamps: { createdAt: 'created_date' } });
 
 
