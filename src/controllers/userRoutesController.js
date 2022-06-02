@@ -12,7 +12,7 @@ controller.login = async (req, res) => {
 
         if (req.body.username && req.body.password) {
             const user = await userModel.findOne({ username: req.body.username }, '-_v')
-            if (!user) { return res.status(404).json({ message: "Username incorrect", statusCode: 404 }) }
+            if (!user) { return res.status(404).json({ message: "Username not found", statusCode: 404 }) }
 
             const payload = {
                 'username': user.username,
