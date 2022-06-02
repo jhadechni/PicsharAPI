@@ -24,6 +24,16 @@ controller.verifyTokenBody = async (req, res) => {
     }
 }
 
+controller.verifyToken = (token) => {
+    try {
+        payload = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET)
+        return payload;
+    } catch (error) {
+        console.log(error)
+        return false
+    }
+}
+
 controller.createToken = (payload) => jwt.sign(payload, process.env.ACCESS_TOKEN_SECRET)
 
 

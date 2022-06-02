@@ -21,7 +21,7 @@ controller.request = async (req, res) => {
                 return res.status(200).json({ message: 'OK'})
             }
         } else {
-            return res.status(404).json({ message: 'No valido', statusCode: 401 })
+            return res.status(401).json({ message: 'No valido', statusCode: 401 })
         }
     } catch (error) {
         res.status(500).json({ data: "Server internal error" })
@@ -61,7 +61,7 @@ controller.followers = async (req, res) => {
                     "user_id" : "$follower_id"
                 });
                 return res.status(200).json(follow.map(user => user._doc.user_id))
-            }else {
+            } else {
                 return res.status(404).json({ message: 'No valido', statusCode: 401 })
             }
         } else {
