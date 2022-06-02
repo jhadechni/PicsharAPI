@@ -1,4 +1,5 @@
 const usersModel = require('../models/userModel')
+const postsModel = require('../models/postModel')
 const mongoose = require('mongoose')
 const app = require('../app')
 const supertest = require('supertest')
@@ -29,13 +30,11 @@ test('Register an user (información completa)', async () => {
     expect(response.statusCode).toEqual(201)
 })
 
-test('Register an user (información imcompleta)', async () => {
+test('Register an user (información incompleta)', async () => {
     const info = {
-        "username": "jhadechine",
         "email": "tests@tests.com",
         "bio": "I am a test",
-        "password": "testPassword",
-        "birthdate": new Date(),
+        "password": "testPassword"
     }
     const response = await supertest(app).post('/users/').send(info)
     expect(response.statusCode).toEqual(400)
@@ -61,7 +60,7 @@ test('Login with token (informacion valida)', async () => {
 
 test('Login with username and password (user not found)', async () => {
     const info = {
-        "username": "jhadechine",
+        "username": "jhadechin",
         "password": "testPassword",
     }
     const response = await supertest(app).post('/users/login').send(info)
@@ -72,16 +71,21 @@ test('Login with username and password (user not found)', async () => {
 test('Login with username and password (incorrect password)', async () => {
     const info = {
         "username": "jhadechine",
-        "password": "testPassword",
+        "password": "testPasswor",
     }
     const response = await supertest(app).post('/users/login').send(info)
     expect(response.statusCode).toEqual(404)
     expect(response.body.message).toEqual('Password incorrect')
 })
 
-test('User info', async () => {
+test('User info (Contraseña no incluida en el response)', async () => {
     const response = await supertest(app).get('/users/').query({ user_id }).auth(token, { type: 'bearer' })
-    expect(response.statusCode).toEqual(200)
+    expect(response.body.password).toEqual(undefined)
+})
+
+test('User info (Fecha de cumpleaños no incluida en el response)', async () => {
+    const response = await supertest(app).get('/users/').query({ user_id }).auth(token, { type: 'bearer' })
+    expect(response.body.birthdate).toEqual(undefined)
 })
 
 
